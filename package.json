@@ -1,0 +1,22 @@
+{
+  "name": "paint-shop-digital-twin-react",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@vitejs/plugin-react": "latest",
+    "cors": "^2.8.6",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "pg": "^8.23.0",
+    "react": "latest",
+    "react-dom": "latest",
+    "three": "^0.128.0",
+    "vite": "latest"
+  }
+}
