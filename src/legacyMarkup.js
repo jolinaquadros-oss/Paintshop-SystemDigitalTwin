@@ -5,7 +5,6 @@ export const legacyMarkup = `
         <h1><span>●</span> Paint Shop — System <span>Digital Twin</span> · 3D</h1>
         <p>REFERENCE FLOW · COMPONENT INPUT → FINAL GOOD · DRAG TO ORBIT · CLICK A MACHINE FOR DETAILS</p>
       </div>
-      <div class="hint">🖱️ Drag = rotate · Scroll = zoom · Tap a machine</div>
       <div class="clock"><span class="status-dot"></span>SIM CLOCK <b id="simClock">00:00</b> &nbsp;·&nbsp; <span
           id="runState">RUNNING</span></div>
     </div>
@@ -15,8 +14,11 @@ export const legacyMarkup = `
         <div class="stage-wrap" style="flex:1;">
           <div id="loading">LOADING 3D SCENE…</div>
           <div id="three-canvas"></div>
-          <button id="btnFocusBooth" class="focus-booth-btn" title="Show the Painting Booth inside the line view" onclick="if(window.__openBoothOverlay) window.__openBoothOverlay()">
-            🎨 Painting Booth View
+          <button id="btnFocusBooth" class="focus-booth-btn" title="Show the Painting Booth inside the line view" onclick="if(window.__toggleBoothOverlay) window.__toggleBoothOverlay()">
+            Painting Booth View
+          </button>
+          <button id="btnLineFocus" class="line-focus-btn" title="View the Paint Shop line full screen" aria-label="View the Paint Shop line full screen" onclick="if(window.__toggleLineFocus) window.__toggleLineFocus()">
+            ⛶
           </button>
           <div class="orbit-hint">Drag to orbit · Scroll to zoom · Click a machine block for details</div>
           <div id="booth-inline-slot"></div>
@@ -193,8 +195,8 @@ export const legacyMarkup = `
 
         <div class="panel-section" style="border-bottom:none;flex:1;display:flex;flex-direction:column;min-height:0;">
           <h2>Event Log</h2>
+          <div class="log" id="log"></div>
         </div>
-        <div class="log" id="log"></div>
       </div>
     </div>
   </div>
