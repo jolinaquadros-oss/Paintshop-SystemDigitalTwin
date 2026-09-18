@@ -184,6 +184,36 @@ export function initPaintShopDigitalTwin() {
       const controls = new SimpleOrbitControls(camera, renderer.domElement, new THREE.Vector3(0, 80, 0));
       controls.update();
 
+      let lineFocus = false;
+      let savedView = null;
+      window.__setLineFocus = enabled => {
+        if (enabled === lineFocus) return;
+
+        if (enabled) {
+          savedView = {
+            target: controls.target.clone(),
+            radius: controls.radius,
+            theta: controls.theta,
+            phi: controls.phi
+          };
+          // Frame the complete production line tightly when entering full-screen mode.
+          controls.target.set(0, 58, 0);
+          controls.radius = 600;
+          lineFocus = true;
+        } else {
+          if (savedView) {
+            controls.target.copy(savedView.target);
+            controls.radius = savedView.radius;
+            controls.theta = savedView.theta;
+            controls.phi = savedView.phi;
+          }
+          savedView = null;
+          lineFocus = false;
+        }
+
+        controls.update();
+      };
+
       scene.add(new THREE.AmbientLight(0x8fa4b8, 0.6));
       const key = new THREE.DirectionalLight(0xdfe9f5, 0.85);
       key.position.set(300, 400, 200);
@@ -378,12 +408,8 @@ export function initPaintShopDigitalTwin() {
         group.add(cap);
       }
       function buildPaintSkid(group, bw, bd, h, hex) {
-        const skid = new THREE.Mesh(new THREE.BoxGeometry(bw * 0.94, 6, bd * 0.94), steelLtMat());
-        skid.position.y = 3; group.add(skid);
-        [-1, 1].forEach(sx => {
-          const rail = new THREE.Mesh(new THREE.BoxGeometry(4, 10, bd * 0.9), accentMat(hex));
-          rail.position.set(sx * bw * 0.42, 8, 0); group.add(rail);
-        });
+        // Intentionally empty — the painting booth is built separately by buildBoothEnclosure
+        // using its own dedicated geometry with guns, walls and control panel.
       }
       function buildUnload(group, bw, bd, h, hex) {
         const fmat = steelMat();
@@ -602,8 +628,8 @@ export function initPaintShopDigitalTwin() {
       const boothStage = STAGES.find(s => s.title === 'Painting Booth');
       const boothPos = toScene(boothStage.x, boothStage.y);
       const boothDepth = boothStage.h * S * 0.86;
-      const GUN_OFFSET_Z = boothDepth / 2 + 40;
-      const GUN_MIN_Y = 78, GUN_MAX_Y = 122;
+      const GUN_OFFSET_Z = boothDepth / 2 + 18;
+      const GUN_MIN_Y = 42, GUN_MAX_Y = 86;
 
       function buildGunRig(sideSign) { // sideSign -1 = gun on the -z side, +1 = gun on the +z side
         const INWARD = -sideSign; // direction from this gun toward the booth centre / hanging part
@@ -643,28 +669,36 @@ export function initPaintShopDigitalTwin() {
       const gun1 = buildGunRig(-1); // on the -z side, sprays inward toward +z
       const gun2 = buildGunRig(1);  // on the +z side, sprays inward toward -z
 
-      /* booth enclosure panels — dark steel booth walls with amber trim, echoing the reference render */
+      /* booth enclosure panels — dark steel booth walls with amber trim, matching the booth overlay */
       (function buildBoothEnclosure() {
         const panelMat = new THREE.MeshStandardMaterial({ color: 0x1c2530, roughness: 0.7, metalness: 0.3, side: THREE.DoubleSide });
-        const frameMat = new THREE.MeshStandardMaterial({ color: 0xffb02e, emissive: 0xffb02e, emissiveIntensity: 0.35, roughness: 0.5, metalness: 0.4 }); // amber machine frame
-        const wallH = 105, wallSpan = GUN_OFFSET_Z * 2 - 6;
-        // back wall (the far side from the camera's usual default view) + roof, entry/exit stay open for the conveyor
-        const back = new THREE.Mesh(new THREE.BoxGeometry(6, wallH, wallSpan), panelMat);
-        back.position.set(boothPos.x - boothStage.w * S * 0.5, wallH / 2, boothPos.z);
-        scene.add(back);
-        const roof = new THREE.Mesh(new THREE.BoxGeometry(boothStage.w * S * 0.95, 5, wallSpan), panelMat);
-        roof.position.set(boothPos.x, wallH, boothPos.z);
-        scene.add(roof);
-        // amber corner frame posts, echoing the reference machine's bright trim
+        const frameMat = new THREE.MeshStandardMaterial({ color: 0xffb02e, emissive: 0xffb02e, emissiveIntensity: 0.35, roughness: 0.5, metalness: 0.4 });
+        const wallH = 105;
+        const boothW = boothStage.w * S * 0.95;
+        // Wall span: guns are at GUN_OFFSET_Z, carriage body depth is 10, wall thickness is 6.
+        // Inner face of wall = GUN_OFFSET_Z + 10, wall centre = GUN_OFFSET_Z + 13.
+        // Span (centre to centre) = GUN_OFFSET_Z * 2 + 26, then pull in by 10 to avoid touching neighbours.
+        const wallSpan = GUN_OFFSET_Z * 2 + 16;
+
+        // Front and Back walls (on Z axis, one behind each gun)
+        const wallFront = new THREE.Mesh(new THREE.BoxGeometry(boothW, wallH, 6), panelMat);
+        wallFront.position.set(boothPos.x, wallH / 2, boothPos.z + wallSpan / 2);
+        scene.add(wallFront);
+
+        const wallBack = new THREE.Mesh(new THREE.BoxGeometry(boothW, wallH, 6), panelMat);
+        wallBack.position.set(boothPos.x, wallH / 2, boothPos.z - wallSpan / 2);
+        scene.add(wallBack);
+
+        // 4 corner posts
         [[-1, -1], [-1, 1], [1, -1], [1, 1]].forEach(([sx, sz]) => {
           const post = new THREE.Mesh(new THREE.BoxGeometry(6, wallH, 6), frameMat);
-          post.position.set(boothPos.x + sx * boothStage.w * S * 0.46, wallH / 2, boothPos.z + sz * wallSpan / 2);
+          post.position.set(boothPos.x + sx * boothW / 2 * 0.95, wallH / 2, boothPos.z + sz * wallSpan / 2);
           scene.add(post);
         });
 
-        // small HMI control panel prop beside the booth
+        // HMI control panel mounted on the inside of the back wall, shifted to the right (matching overlay)
         const panelGroup = new THREE.Group();
-        panelGroup.position.set(boothPos.x, 0, boothPos.z - wallSpan / 2 - 16);
+        panelGroup.position.set(boothPos.x + 25, 0, boothPos.z - GUN_OFFSET_Z - 6);
         const cabinet = new THREE.Mesh(new THREE.BoxGeometry(16, 46, 8), new THREE.MeshStandardMaterial({ color: 0x2c3745, roughness: 0.6, metalness: 0.35 }));
         cabinet.position.y = 23;
         panelGroup.add(cabinet);
@@ -1339,18 +1373,9 @@ export function initPaintShopDigitalTwin() {
           const checked = [...listEl.querySelectorAll('input[type=checkbox]:checked')].map(i => +i.value);
           if (!checked.length) { alert('Please select at least one machine.'); return; }
 
-          const allMachines = checked.length === STAGES.length;
-          if (allMachines) {
-            // full line downtime
-            downtimeActive = true; downtimeTimer = dur; downtimeMin += 0;
-            logEvent(`<span style="color:#e8483a">⚠ Full line downtime started — ${dur} min</span>`);
-          } else {
-            checked.forEach(sid => {
-              machineDowntimes[sid] = dur;
-              const st = STAGES.find(s => s.id === sid);
-              logEvent(`<span style="color:#e8483a">⚠ ${st ? st.title : 'Machine'} downtime — ${dur} min</span>`);
-            });
-          }
+          // Any machine downtime stops the connected conveyor line.
+          downtimeActive = true; downtimeTimer = dur; downtimeMin += 0;
+          logEvent(`<span style="color:#e8483a">⚠ Full line downtime started — ${dur} min</span>`);
           backdrop.classList.remove('open');
         });
       })();

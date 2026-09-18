@@ -49,24 +49,31 @@ export default function PaintingBoothOverlay({ isOpen, onClose }) {
     boothGlow.position.set(0, 80, 0); scene.add(boothGlow);
 
     // Booth Geometry
-    const bWallSpan = GUN_OFFSET_Z * 2 - 6;
+    // We expand the wall span so that the walls sit completely behind the guns (including the carriage body).
+    // Guns are at GUN_OFFSET_Z. The carriage body extends 10 units outward from the rail.
+    // So wall inner face should be at GUN_OFFSET_Z + 10.
+    // A wall of thickness 6 centered at GUN_OFFSET_Z + 13 will have its inner face at GUN_OFFSET_Z + 10.
+    // Therefore the span (center to center) should be (GUN_OFFSET_Z + 13) * 2 = GUN_OFFSET_Z * 2 + 26.
+    const bWallSpan = GUN_OFFSET_Z * 2 + 26;
     const bWallH    = 105;
     const bBoothW   = boothStage.w * S * 0.95;
     const panelMat  = new THREE.MeshStandardMaterial({ color: 0x1c2530, roughness: 0.7, metalness: 0.3, side: THREE.DoubleSide });
     const frameMat  = new THREE.MeshStandardMaterial({ color: 0xffb02e, emissive: 0xffb02e, emissiveIntensity: 0.4, roughness: 0.5, metalness: 0.4 });
 
-    const backW = new THREE.Mesh(new THREE.BoxGeometry(6, bWallH, bWallSpan), panelMat);
-    backW.position.set(-bBoothW / 2, bWallH / 2, 0); scene.add(backW);
-    
-    const roofM = new THREE.Mesh(new THREE.BoxGeometry(bBoothW, 5, bWallSpan), panelMat);
-    roofM.position.set(0, bWallH, 0); scene.add(roofM);
-    
+    // Removed side wall and top roof to allow components to pass through on X axis.
+    // Added walls on Z axis behind each gun instead.
+    const wallFront = new THREE.Mesh(new THREE.BoxGeometry(bBoothW, bWallH, 6), panelMat);
+    wallFront.position.set(0, bWallH / 2, bWallSpan / 2); scene.add(wallFront);
+
+    const wallBack = new THREE.Mesh(new THREE.BoxGeometry(bBoothW, bWallH, 6), panelMat);
+    wallBack.position.set(0, bWallH / 2, -bWallSpan / 2); scene.add(wallBack);
+
     [[-1, -1], [-1, 1], [1, -1], [1, 1]].forEach(([sx, sz]) => {
       const post = new THREE.Mesh(new THREE.BoxGeometry(6, bWallH, 6), frameMat);
       post.position.set(sx * bBoothW / 2 * 0.95, bWallH / 2, sz * bWallSpan / 2);
       scene.add(post);
     });
-    
+
     const stripMat = new THREE.MeshBasicMaterial({ color: 0xf2722f, transparent: true, opacity: 0.18 });
     const strip = new THREE.Mesh(new THREE.PlaneGeometry(bBoothW * 0.7, bWallSpan), stripMat);
     strip.rotation.x = -Math.PI / 2; strip.position.y = 0.1;
@@ -127,7 +134,9 @@ export default function PaintingBoothOverlay({ isOpen, onClose }) {
 
     // Panel prop
     const panelGrp = new THREE.Group();
-    panelGrp.position.set(0, 0, -bWallSpan / 2 - 16);
+    // Move the panel to the right side (X=25) and mount it on the inside of the back wall.
+    // Back wall inner face is at -(GUN_OFFSET_Z + 10). Cabinet depth is 8, so its center is -(GUN_OFFSET_Z + 6).
+    panelGrp.position.set(25, 0, -GUN_OFFSET_Z - 6);
     const cabinet = new THREE.Mesh(new THREE.BoxGeometry(16, 46, 8),
       new THREE.MeshStandardMaterial({ color: 0x2c3745, roughness: 0.6, metalness: 0.35 }));
     cabinet.position.y = 23; panelGrp.add(cabinet);
@@ -231,7 +240,6 @@ export default function PaintingBoothOverlay({ isOpen, onClose }) {
 
   return (
     <section className="booth-inline open">
-      <button className="booth-inline-close" onClick={onClose} title="Close Painting Booth">✕</button>
       <div ref={canvasWrapRef} className="booth-canvas-wrap"></div>
     </section>
   );

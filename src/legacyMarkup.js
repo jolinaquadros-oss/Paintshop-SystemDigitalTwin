@@ -193,7 +193,7 @@ export const legacyMarkup = `
           </div>
         </div>
 
-        <div class="panel-section" style="border-bottom:none;flex:1;display:flex;flex-direction:column;min-height:0;">
+        <div class="panel-section event-log-panel" style="border-bottom:none;flex:1;display:flex;flex-direction:column;min-height:0;">
           <h2>Event Log</h2>
           <div class="log" id="log"></div>
         </div>
