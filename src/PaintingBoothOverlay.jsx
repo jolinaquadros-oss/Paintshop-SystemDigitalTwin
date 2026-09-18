@@ -1,9 +1,8 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef } from "react";
 import * as THREE from "three";
 
 export default function PaintingBoothOverlay({ isOpen, onClose }) {
   const canvasWrapRef = useRef(null);
-  const [stats, setStats] = useState({ dur: "-- min", wip: 0, spray: "IDLE" });
 
   useEffect(() => {
     if (!isOpen || !window.__boothSimState) return;
@@ -13,7 +12,6 @@ export default function PaintingBoothOverlay({ isOpen, onClose }) {
 
     const state = window.__boothSimState;
 
-    // Grab all constants from the state we exposed
     const {
       CUM, boothStage, GUN_OFFSET_Z, GUN_MIN_Y, GUN_MAX_Y,
       RAIL_HEIGHT, HOOK_LEN, PART_W, PART_LEN, PART_D, S,
@@ -22,6 +20,7 @@ export default function PaintingBoothOverlay({ isOpen, onClose }) {
 
     let boothAnimId = null;
 
+    /* ── scene ── */
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x121b26);
     scene.fog = new THREE.Fog(0x07090e, 320, 700);
@@ -39,7 +38,7 @@ export default function PaintingBoothOverlay({ isOpen, onClose }) {
     controls.maxDistance = 400;
     controls.update();
 
-    // Lights
+    /* ── lights ── */
     scene.add(new THREE.AmbientLight(0x8fa4b8, 0.55));
     const keyL = new THREE.DirectionalLight(0xdfe9f5, 0.9);
     keyL.position.set(120, 300, 200); scene.add(keyL);
@@ -48,20 +47,13 @@ export default function PaintingBoothOverlay({ isOpen, onClose }) {
     const boothGlow = new THREE.PointLight(0xff7a30, 1.6, 260, 2);
     boothGlow.position.set(0, 80, 0); scene.add(boothGlow);
 
-    // Booth Geometry
-    // We expand the wall span so that the walls sit completely behind the guns (including the carriage body).
-    // Guns are at GUN_OFFSET_Z. The carriage body extends 10 units outward from the rail.
-    // So wall inner face should be at GUN_OFFSET_Z + 10.
-    // A wall of thickness 6 centered at GUN_OFFSET_Z + 13 will have its inner face at GUN_OFFSET_Z + 10.
-    // Therefore the span (center to center) should be (GUN_OFFSET_Z + 13) * 2 = GUN_OFFSET_Z * 2 + 26.
+    /* ── booth walls / enclosure ── */
     const bWallSpan = GUN_OFFSET_Z * 2 + 26;
     const bWallH    = 105;
     const bBoothW   = boothStage.w * S * 0.95;
     const panelMat  = new THREE.MeshStandardMaterial({ color: 0x1c2530, roughness: 0.7, metalness: 0.3, side: THREE.DoubleSide });
     const frameMat  = new THREE.MeshStandardMaterial({ color: 0xffb02e, emissive: 0xffb02e, emissiveIntensity: 0.4, roughness: 0.5, metalness: 0.4 });
 
-    // Removed side wall and top roof to allow components to pass through on X axis.
-    // Added walls on Z axis behind each gun instead.
     const wallFront = new THREE.Mesh(new THREE.BoxGeometry(bBoothW, bWallH, 6), panelMat);
     wallFront.position.set(0, bWallH / 2, bWallSpan / 2); scene.add(wallFront);
 
@@ -79,7 +71,7 @@ export default function PaintingBoothOverlay({ isOpen, onClose }) {
     strip.rotation.x = -Math.PI / 2; strip.position.y = 0.1;
     scene.add(strip);
 
-    // Guns
+    /* ── spray guns ── */
     function buildBoothGun(sideSign) {
       const INWARD = -sideSign;
       const rig = new THREE.Group();
@@ -105,7 +97,7 @@ export default function PaintingBoothOverlay({ isOpen, onClose }) {
     const boothGun1 = buildBoothGun(-1);
     const boothGun2 = buildBoothGun(1);
 
-    // Rail
+    /* ── overhead rail ── */
     const railSegMat = new THREE.MeshStandardMaterial({ color: 0x3a4757, roughness: 0.4, metalness: 0.75 });
     const railSeg = new THREE.Mesh(new THREE.BoxGeometry(bBoothW * 1.3, 6, 6), railSegMat);
     railSeg.position.set(0, RAIL_HEIGHT, 0); scene.add(railSeg);
@@ -115,27 +107,8 @@ export default function PaintingBoothOverlay({ isOpen, onClose }) {
       pole.position.set(sx * bBoothW * 0.45, RAIL_HEIGHT / 2, 0); scene.add(pole);
     });
 
-    // Part
-    const hookG   = new THREE.CylinderGeometry(1.1, 1.1, HOOK_LEN, 8);
-    const hookMat = new THREE.MeshStandardMaterial({ color: 0x8a97a3, roughness: 0.4, metalness: 0.7 });
-    const hookM   = new THREE.Mesh(hookG, hookMat);
-    hookM.position.y = RAIL_HEIGHT - HOOK_LEN / 2;
-
-    const partDisplayMat = new THREE.MeshStandardMaterial({ color: BARE_COLOR.clone(), roughness: 0.55, metalness: 0.55 });
-    const partDisplayMesh = new THREE.Mesh(new THREE.BoxGeometry(PART_W, PART_LEN, PART_D), partDisplayMat);
-    partDisplayMesh.position.y = RAIL_HEIGHT - HOOK_LEN - PART_LEN / 2;
-
-    const boothPartMesh = new THREE.Group();
-    boothPartMesh.add(hookM);
-    boothPartMesh.add(partDisplayMesh);
-    boothPartMesh._mat = partDisplayMat;
-    boothPartMesh.visible = false;
-    scene.add(boothPartMesh);
-
-    // Panel prop
+    /* ── control panel prop ── */
     const panelGrp = new THREE.Group();
-    // Move the panel to the right side (X=25) and mount it on the inside of the back wall.
-    // Back wall inner face is at -(GUN_OFFSET_Z + 10). Cabinet depth is 8, so its center is -(GUN_OFFSET_Z + 6).
     panelGrp.position.set(25, 0, -GUN_OFFSET_Z - 6);
     const cabinet = new THREE.Mesh(new THREE.BoxGeometry(16, 46, 8),
       new THREE.MeshStandardMaterial({ color: 0x2c3745, roughness: 0.6, metalness: 0.35 }));
@@ -155,6 +128,7 @@ export default function PaintingBoothOverlay({ isOpen, onClose }) {
     });
     scene.add(panelGrp);
 
+    /* ── resize handler ── */
     const onResize = () => {
       if (!wrap || !renderer) return;
       camera.aspect = wrap.clientWidth / wrap.clientHeight;
@@ -163,50 +137,132 @@ export default function PaintingBoothOverlay({ isOpen, onClose }) {
     };
     window.addEventListener('resize', onResize);
 
-    // Render loop
+    /* ── geometry helpers matching makeCompMesh in the main sim ── */
+    const hookGeo  = new THREE.CylinderGeometry(1.1, 1.1, HOOK_LEN, 8);
+    const hookMat  = new THREE.MeshStandardMaterial({ color: 0x8a97a3, roughness: 0.4, metalness: 0.7 });
+    const holeGeo  = new THREE.CylinderGeometry(1.4, 1.4, PART_D + 0.6, 12);
+    const holeMat  = new THREE.MeshStandardMaterial({ color: 0x11151a, roughness: 0.8, metalness: 0.1 });
+
+    function buildPartMesh(type) {
+      const dynamicTypes = state.dynamicTypes;
+      const group   = new THREE.Group();
+      const hookM   = new THREE.Mesh(hookGeo, hookMat);
+      hookM.position.y = -HOOK_LEN / 2;
+      group.add(hookM);
+
+      const partMat = new THREE.MeshStandardMaterial({ color: BARE_COLOR.clone(), roughness: 0.55, metalness: 0.55 });
+      const partGrp = new THREE.Group();
+
+      if (type === 'A' || !type) {
+        const part = new THREE.Mesh(new THREE.BoxGeometry(PART_W, PART_LEN, PART_D), partMat);
+        part.position.y = -HOOK_LEN - PART_LEN / 2;
+        partGrp.add(part);
+        [PART_LEN * 0.30, PART_LEN * 0.70].forEach(offset => {
+          const hole = new THREE.Mesh(holeGeo, holeMat);
+          hole.rotation.x = Math.PI / 2;
+          hole.position.set(0, -HOOK_LEN - offset, 0);
+          partGrp.add(hole);
+        });
+      } else if (type === 'B') {
+        const part = new THREE.Mesh(new THREE.CylinderGeometry(4.5, 4.5, PART_LEN, 16), partMat);
+        part.position.y = -HOOK_LEN - PART_LEN / 2;
+        partGrp.add(part);
+      } else if (type === 'C') {
+        const part = new THREE.Mesh(new THREE.TorusGeometry(12, 3.5, 16, 32), partMat);
+        part.position.y = -HOOK_LEN - 18;
+        partGrp.add(part);
+      } else if (dynamicTypes && dynamicTypes[type]) {
+        const dt = dynamicTypes[type];
+        let geo;
+        if      (dt.shape === 'box')      geo = new THREE.BoxGeometry(dt.size, dt.size * 1.5, dt.size * 0.5);
+        else if (dt.shape === 'sphere')   geo = new THREE.SphereGeometry(dt.size * 0.7, 16, 16);
+        else if (dt.shape === 'cylinder') geo = new THREE.CylinderGeometry(dt.size * 0.5, dt.size * 0.5, dt.size * 1.5, 12);
+        else if (dt.shape === 'cone')     geo = new THREE.ConeGeometry(dt.size * 0.6, dt.size * 1.5, 12);
+        else                              geo = new THREE.TorusGeometry(dt.size * 0.8, dt.size * 0.25, 12, 24);
+        const part = new THREE.Mesh(geo, partMat);
+        part.position.y = -HOOK_LEN - dt.size;
+        partGrp.add(part);
+      } else {
+        // fallback: box identical to type A
+        const part = new THREE.Mesh(new THREE.BoxGeometry(PART_W, PART_LEN, PART_D), partMat);
+        part.position.y = -HOOK_LEN - PART_LEN / 2;
+        partGrp.add(part);
+      }
+
+      group.add(partGrp);
+      group.position.y = RAIL_HEIGHT;
+      scene.add(group);
+      return { group, partMat };
+    }
+
+    /* ── live component pool for the overlay ── */
+    // Map<compId, { group, partMat }>
+    const overlayPool = new Map();
+
+    /* ── booth conveyor geometry for position mapping ── */
+    // The booth spans horizontally. CUM[boothStage.id] is the centre of the booth
+    // in path-distance space. We spread visible components left→right inside the
+    // booth width so you can see them "marching through".
+    const BOOTH_CUM   = CUM[boothStage.id];
+    const BOOTH_HALF  = (boothStage.w * S * 0.95) / 2 * 0.85; // usable half-width in scene units
+    // Tolerance: how far (in path units) from the booth centre we still show a component
+    const BOOTH_PATH_RADIUS = 55;
+
+    /* ── render loop ── */
     function animateBooth() {
       boothAnimId = requestAnimationFrame(animateBooth);
 
-      // Access live state getters
       const liveComponents = state.components;
-      const liveGunClock = state.gunClock;
+      const liveGunClock   = state.gunClock;
 
-      const freq = 0.9;
+      /* gun animation */
+      const freq  = 0.9;
       const phase = liveGunClock * freq * Math.PI * 2;
-      const s1 = Math.sin(phase), s2 = Math.sin(phase + Math.PI);
-      
-      const boothOccupied = liveComponents.some(c => Math.abs(c.pos - CUM[boothStage.id]) < 30);
-      
-      const y1 = GUN_MIN_Y + (s1 * 0.5 + 0.5) * (GUN_MAX_Y - GUN_MIN_Y);
-      const y2 = GUN_MIN_Y + (s2 * 0.5 + 0.5) * (GUN_MAX_Y - GUN_MIN_Y);
-      boothGun1.carriage.position.y = y1;
-      boothGun2.carriage.position.y = y2;
+      const s1    = Math.sin(phase), s2 = Math.sin(phase + Math.PI);
+      const boothOccupied = liveComponents.some(c => Math.abs(c.pos - BOOTH_CUM) < BOOTH_PATH_RADIUS);
+
+      boothGun1.carriage.position.y = GUN_MIN_Y + (s1 * 0.5 + 0.5) * (GUN_MAX_Y - GUN_MIN_Y);
+      boothGun2.carriage.position.y = GUN_MIN_Y + (s2 * 0.5 + 0.5) * (GUN_MAX_Y - GUN_MIN_Y);
       boothGun1.spray.visible = boothOccupied && s1 > 0;
       boothGun2.spray.visible = boothOccupied && s2 > 0;
 
-      if (boothPartMesh) {
-        const compInBooth = liveComponents.find(c => Math.abs(c.pos - CUM[boothStage.id]) < 30);
-        if (compInBooth) {
-          boothPartMesh.visible = true;
-          const bPos = CUM[boothStage.id];
-          let frac = compInBooth.pos < bPos - 20 ? 0
-                   : compInBooth.pos > bPos + 20 ? 1
-                   : (compInBooth.pos - (bPos - 20)) / 40;
-          frac = Math.max(0, Math.min(1, frac));
-          boothPartMesh._mat.color.copy(BARE_COLOR).lerp(PAINTED_COLOR, frac);
-          boothPartMesh._mat.metalness = 0.55 + (0.12 - 0.55) * frac;
-          boothPartMesh._mat.roughness  = 0.55 + (0.42 - 0.55) * frac;
-        } else {
-          boothPartMesh.visible = false;
-        }
-      }
+      /* which components are near the booth? */
+      const nearBooth = liveComponents.filter(c => Math.abs(c.pos - BOOTH_CUM) < BOOTH_PATH_RADIUS);
+      const nearIds   = new Set(nearBooth.map(c => c.id));
 
-      // Update React state (throttled/batched by React, but we can do it every frame here)
-      const wipCount = liveComponents.filter(c => Math.abs(c.pos - CUM[boothStage.id]) < 30).length;
-      setStats({
-        dur: boothStage.dur + ' min',
-        wip: wipCount,
-        spray: boothOccupied ? 'ACTIVE' : 'IDLE'
+      /* remove meshes for departed components */
+      overlayPool.forEach((entry, id) => {
+        if (!nearIds.has(id)) {
+          scene.remove(entry.group);
+          overlayPool.delete(id);
+        }
+      });
+
+      /* add / update meshes for current components */
+      nearBooth.forEach(c => {
+        let entry = overlayPool.get(c.id);
+        if (!entry) {
+          entry = buildPartMesh(c.type);
+          overlayPool.set(c.id, entry);
+        }
+
+        /* Map component's path position to an X position inside the booth.
+           When pos == BOOTH_CUM - BOOTH_PATH_RADIUS → X = -BOOTH_HALF (entering)
+           When pos == BOOTH_CUM + BOOTH_PATH_RADIUS → X = +BOOTH_HALF (exiting) */
+        const t = (c.pos - (BOOTH_CUM - BOOTH_PATH_RADIUS)) / (BOOTH_PATH_RADIUS * 2);
+        const xPos = -BOOTH_HALF + t * BOOTH_HALF * 2;
+        entry.group.position.set(xPos, RAIL_HEIGHT, 0);
+
+        /* paint colour transition (same formula as main scene) */
+        let frac;
+        if      (c.pos < BOOTH_CUM - 20) frac = 0;
+        else if (c.pos > BOOTH_CUM + 20) frac = 1;
+        else                             frac = (c.pos - (BOOTH_CUM - 20)) / 40;
+        frac = Math.max(0, Math.min(1, frac));
+
+        entry.partMat.color.copy(BARE_COLOR).lerp(PAINTED_COLOR, frac);
+        entry.partMat.metalness = 0.55 + (0.12 - 0.55) * frac;
+        entry.partMat.roughness = 0.55 + (0.42 - 0.55) * frac;
       });
 
       controls.update();
@@ -215,10 +271,12 @@ export default function PaintingBoothOverlay({ isOpen, onClose }) {
 
     animateBooth();
 
-    // Cleanup
+    /* ── cleanup ── */
     return () => {
       cancelAnimationFrame(boothAnimId);
       window.removeEventListener('resize', onResize);
+      overlayPool.forEach(entry => scene.remove(entry.group));
+      overlayPool.clear();
       if (renderer) {
         renderer.dispose();
         if (wrap.contains(renderer.domElement)) {

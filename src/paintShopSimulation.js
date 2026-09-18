@@ -1510,8 +1510,9 @@ export function initPaintShopDigitalTwin() {
          can read live data (components, CUM, gunClock, etc.) without coupling
          it to the vanilla-JS internals. */
       window.__boothSimState = {
-        get components() { return components; },
-        get gunClock()   { return gunClock;   },
+        get components()    { return components;    },
+        get gunClock()      { return gunClock;      },
+        get dynamicTypes()  { return dynamicTypes;  },
         CUM,
         boothStage,
         STAGES,
