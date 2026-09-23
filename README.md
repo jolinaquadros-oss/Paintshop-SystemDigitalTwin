@@ -40,10 +40,10 @@ npm install
 
 ## 3. Set up PostgreSQL
 
-Create a database named `system_ps`:
+Create a database named `system_ps_test`:
 
 ```sql
-CREATE DATABASE system_ps;
+CREATE DATABASE system_ps_test;
 ```
 
 If needed, make sure your PostgreSQL user has access to the database. The app defaults to the local PostgreSQL user `postgres`.
@@ -61,7 +61,7 @@ Create a `.env` file in the project root:
 ```env
 DB_USER=postgres
 DB_HOST=localhost
-DB_NAME=system_ps
+DB_NAME=system_ps_test
 DB_PASSWORD=your_postgres_password
 DB_PORT=5432
 PORT=3001

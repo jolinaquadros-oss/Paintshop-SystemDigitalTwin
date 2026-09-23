@@ -25,7 +25,7 @@ export const legacyMarkup = `
         </div>
 
         <!-- Live Database Stats Section -->
-        <div class="live-stats-panel" style="margin: 0; border-radius: 0; border-left: none; border-bottom: none; border-right: none; flex-shrink: 0; max-height: 280px; display: flex; flex-direction: column;">
+        <div class="live-stats-panel" style="margin: 0; border-radius: 0; border-left: none; border-bottom: none; border-right: none; flex: 1; min-height: 0; display: flex; flex-direction: column;">
           <div class="live-stats-header">
             <h2>Live Postgres Production Database</h2>
             <div class="live-stats-indicator"><span class="pulse-dot"></span>LIVE</div>
@@ -33,30 +33,51 @@ export const legacyMarkup = `
           
           <div class="datewise-panel" style="flex: 1; min-height: 0;">
             <div class="live-table-container">
-              <div class="stat-card" style="margin-bottom: 8px;">
-                <div class="stat-lbl">Total Production Runs</div>
-                <div class="stat-num" id="dbTotalCount">0</div>
+              <div style="display: flex; gap: 16px; margin-bottom: 8px;">
+                <div class="stat-card" style="flex: 1;">
+                  <div class="stat-lbl">Total Production Runs</div>
+                  <div class="stat-num" id="dbTotalCount">0</div>
+                </div>
+                <div class="stat-card" style="flex: 1;">
+                  <div class="stat-lbl">Total Components Produced</div>
+                  <div class="stat-num" id="dbTotalProduced">0</div>
+                </div>
               </div>
-              <div class="table-container" style="flex: 1;">
-                <table class="live-table">
-                  <thead>
-                    <tr>
-                      <th>Run ID</th>
-                      <th>Component</th>
-                      <th>Status</th>
-                      <th>Date & Time</th>
-                      <th>OEE</th>
-                      <th>Avail.</th>
-                      <th>Perf.</th>
-                      <th>Total Count</th>
-                      <th>OK Count</th>
-                      <th>Downtime</th>
-                    </tr>
-                  </thead>
-                  <tbody id="dbRecentRows">
-                    <tr><td colspan="10" style="text-align:center;color:#666;">Waiting for data...</td></tr>
-                  </tbody>
-                </table>
+              <div style="display: flex; gap: 16px; flex: 1; min-height: 0; min-width: 0;">
+                <div class="table-container" style="flex: 1;">
+                  <table class="live-table live-table-main">
+                    <thead>
+                      <tr>
+                        <th style="min-width: 70px;">Run ID</th>
+                        <th style="min-width: 110px;">Component</th>
+                        <th style="min-width: 105px;">Status</th>
+                        <th style="min-width: 150px;">Date & Time</th>
+                        <th style="min-width: 65px;">OEE</th>
+                        <th style="min-width: 65px;">Avail.</th>
+                        <th style="min-width: 65px;">Perf.</th>
+                        <th style="min-width: 85px;">Total Count</th>
+                        <th style="min-width: 80px;">OK Count</th>
+                        <th style="min-width: 80px;">Downtime</th>
+                      </tr>
+                    </thead>
+                    <tbody id="dbRecentRows">
+                      <tr><td colspan="10" style="text-align:center;color:#666;">Waiting for data...</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+                <div class="table-container" style="flex: 0 0 240px;">
+                  <table class="live-table">
+                    <thead>
+                      <tr>
+                        <th>Component</th>
+                        <th>Total</th>
+                      </tr>
+                    </thead>
+                    <tbody id="dbComponentTotals">
+                      <tr><td colspan="2" style="text-align:center;color:#666;">Waiting for data...</td></tr>
+                    </tbody>
+                  </table>
+                </div>
               </div>
             </div>
 
@@ -89,9 +110,6 @@ export const legacyMarkup = `
             <div style="display:flex;gap:4px;align-items:center;">
               <select id="compType"
                 style="background:var(--panel2);color:var(--text);border:1px solid var(--line);border-radius:3px;padding:4px;font-family:inherit;font-size:11px;cursor:pointer;">
-                <option value="A">Component A (Panel)</option>
-                <option value="B">Component B (Pipe)</option>
-                <option value="C">Component C (Ring)</option>
               </select>
               <button id="btnNewType" title="Create new component type" style="padding:4px 8px;">+</button>
               <input type="number" id="bulkCount" value="1" min="1" max="100" title="Bulk amount"
@@ -153,7 +171,7 @@ export const legacyMarkup = `
           </div>
         </div>
 
-        <div class="panel-section">
+        <div class="panel-section" style="background:var(--panel);">
           <h2>OEE Performance</h2>
           <div class="oee-headline">
             <div class="oee-num" id="kpiOEE">0%</div>

@@ -144,7 +144,7 @@ export default function PaintingBoothOverlay({ isOpen, onClose }) {
     const holeMat  = new THREE.MeshStandardMaterial({ color: 0x11151a, roughness: 0.8, metalness: 0.1 });
 
     function buildPartMesh(type) {
-      const dynamicTypes = state.dynamicTypes;
+      const dynamicTypes = state.dynamicTypes || {};
       const group   = new THREE.Group();
       const hookM   = new THREE.Mesh(hookGeo, hookMat);
       hookM.position.y = -HOOK_LEN / 2;
@@ -153,40 +153,53 @@ export default function PaintingBoothOverlay({ isOpen, onClose }) {
       const partMat = new THREE.MeshStandardMaterial({ color: BARE_COLOR.clone(), roughness: 0.55, metalness: 0.55 });
       const partGrp = new THREE.Group();
 
-      if (type === 'A' || !type) {
-        const part = new THREE.Mesh(new THREE.BoxGeometry(PART_W, PART_LEN, PART_D), partMat);
-        part.position.y = -HOOK_LEN - PART_LEN / 2;
-        partGrp.add(part);
-        [PART_LEN * 0.30, PART_LEN * 0.70].forEach(offset => {
-          const hole = new THREE.Mesh(holeGeo, holeMat);
-          hole.rotation.x = Math.PI / 2;
-          hole.position.set(0, -HOOK_LEN - offset, 0);
-          partGrp.add(hole);
-        });
-      } else if (type === 'B') {
-        const part = new THREE.Mesh(new THREE.CylinderGeometry(4.5, 4.5, PART_LEN, 16), partMat);
-        part.position.y = -HOOK_LEN - PART_LEN / 2;
-        partGrp.add(part);
-      } else if (type === 'C') {
-        const part = new THREE.Mesh(new THREE.TorusGeometry(12, 3.5, 16, 32), partMat);
-        part.position.y = -HOOK_LEN - 18;
-        partGrp.add(part);
-      } else if (dynamicTypes && dynamicTypes[type]) {
-        const dt = dynamicTypes[type];
-        let geo;
-        if      (dt.shape === 'box')      geo = new THREE.BoxGeometry(dt.size, dt.size * 1.5, dt.size * 0.5);
-        else if (dt.shape === 'sphere')   geo = new THREE.SphereGeometry(dt.size * 0.7, 16, 16);
-        else if (dt.shape === 'cylinder') geo = new THREE.CylinderGeometry(dt.size * 0.5, dt.size * 0.5, dt.size * 1.5, 12);
-        else if (dt.shape === 'cone')     geo = new THREE.ConeGeometry(dt.size * 0.6, dt.size * 1.5, 12);
-        else                              geo = new THREE.TorusGeometry(dt.size * 0.8, dt.size * 0.25, 12, 24);
-        const part = new THREE.Mesh(geo, partMat);
-        part.position.y = -HOOK_LEN - dt.size;
-        partGrp.add(part);
+      const dt = dynamicTypes[type] || { shape: 'front_panel' }; // fallback
+      let geo;
+      let partY = -HOOK_LEN - PART_LEN / 2;
+
+      if (dt.shape === 'front_panel') {
+        const shape = new THREE.Shape();
+        shape.moveTo(-16, -16);
+        shape.lineTo(16, -16);
+        shape.lineTo(16, 16);
+        shape.lineTo(-16, 16);
+        shape.lineTo(-16, -16);
+        const holePath = new THREE.Path();
+        holePath.absarc(0, 0, 11, 0, Math.PI * 2, false);
+        shape.holes.push(holePath);
+        geo = new THREE.ExtrudeGeometry(shape, { depth: 2, bevelEnabled: true, bevelThickness: 0.5, bevelSize: 0.5, bevelSegments: 2 });
+        geo.translate(0, 0, -1);
+      } else if (dt.shape === 'back_panel') {
+        geo = new THREE.BoxGeometry(32, 32, 2);
+      } else if (dt.shape === 'top_panel') {
+        geo = new THREE.BoxGeometry(32, 4, 16);
+      } else if (dt.shape === 'side_panel') {
+        geo = new THREE.BoxGeometry(4, 28, 18);
+      } else if (dt.shape === 'box') {
+        geo = new THREE.BoxGeometry(PART_W, PART_LEN, PART_D);
+      } else if (dt.shape === 'cylinder') {
+        geo = new THREE.CylinderGeometry(4.5, 4.5, PART_LEN, 16);
+      } else if (dt.shape === 'torus') {
+        geo = new THREE.TorusGeometry(12, 3.5, 16, 32);
+        partY = -HOOK_LEN - 18;
+      } else if (dt.shape === 'sphere') {
+        geo = new THREE.SphereGeometry(6, 16, 16);
+        partY = -HOOK_LEN - 14;
       } else {
-        // fallback: box identical to type A
-        const part = new THREE.Mesh(new THREE.BoxGeometry(PART_W, PART_LEN, PART_D), partMat);
-        part.position.y = -HOOK_LEN - PART_LEN / 2;
-        partGrp.add(part);
+        geo = new THREE.ConeGeometry(5, PART_LEN * 0.7, 12);
+        partY = -HOOK_LEN - PART_LEN * 0.35;
+      }
+
+      const part = new THREE.Mesh(geo, partMat);
+      part.position.y = partY;
+      partGrp.add(part);
+
+      // Punch hole for hanging
+      if (['front_panel', 'back_panel', 'top_panel', 'side_panel'].includes(dt.shape)) {
+        const h = new THREE.Mesh(new THREE.CylinderGeometry(1.4, 1.4, 4, 12), holeMat);
+        h.rotation.x = Math.PI / 2;
+        h.position.set(0, -HOOK_LEN - 3, 0);
+        partGrp.add(h);
       }
 
       group.add(partGrp);

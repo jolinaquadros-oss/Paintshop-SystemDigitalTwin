@@ -14,7 +14,7 @@ app.use(express.json());
 const pool = new Pool({
   user: process.env.DB_USER || 'postgres',
   host: process.env.DB_HOST || 'localhost',
-  database: process.env.DB_NAME || 'system_ps',
+  database: process.env.DB_NAME || 'system_digitaltwin',
   password: process.env.DB_PASSWORD || 'root',
   port: process.env.DB_PORT || 5432,
 });
@@ -46,7 +46,7 @@ const initDb = async () => {
     );
 
     CREATE TABLE IF NOT EXISTS components (
-      component_id VARCHAR(10) PRIMARY KEY,
+      component_id VARCHAR(100) PRIMARY KEY,
       component_type VARCHAR(100) NOT NULL,
       shape VARCHAR(20) NOT NULL DEFAULT 'box'
     );
@@ -76,6 +76,7 @@ const initDb = async () => {
       END $$;
     `);
     await pool.query('ALTER TABLE components DROP COLUMN IF EXISTS size, DROP COLUMN IF EXISTS created_at');
+    await pool.query('ALTER TABLE components ALTER COLUMN component_id TYPE VARCHAR(100)');
     await pool.query(`
       DO $$
       BEGIN
@@ -127,10 +128,13 @@ const initDb = async () => {
     await pool.query(`
       INSERT INTO components (component_id, component_type, shape)
       VALUES
-        ('A', 'Panel', 'box'),
-        ('B', 'Pipe', 'cylinder'),
-        ('C', 'Ring', 'torus')
-      ON CONFLICT (component_id) DO NOTHING
+        ('A', 'Front Panel', 'front_panel'),
+        ('B', 'Back Panel', 'back_panel'),
+        ('C', 'Side 1', 'side_panel'),
+        ('D', 'Side 2', 'side_panel'),
+        ('E', 'Top Panel', 'top_panel'),
+        ('F', 'Bottom Panel', 'top_panel')
+      ON CONFLICT (component_id) DO UPDATE SET component_type = EXCLUDED.component_type, shape = EXCLUDED.shape
     `);
     await pool.query('UPDATE production SET downtime = 0 WHERE downtime IS NULL');
     console.log('Database initialized: production, stages, and components tables exist.');
@@ -165,13 +169,13 @@ app.get('/api/component-types', async (req, res) => {
 
 app.post('/api/component-types', async (req, res) => {
   const { component_id, component_type, shape } = req.body || {};
-  const normalizedId = String(component_id || '').trim().toUpperCase();
+  const normalizedId = String(component_id || '').trim();
   const normalizedType = String(component_type || '').trim();
-  const allowedShapes = ['box', 'sphere', 'cylinder', 'cone', 'torus'];
+  const allowedShapes = ['box', 'sphere', 'cylinder', 'cone', 'torus', 'front_panel', 'back_panel', 'top_panel', 'side_panel', 'base_tray', 'top_cover'];
   const normalizedShape = String(shape || 'box').trim().toLowerCase();
 
-  if (!/^[A-Z0-9]{1,10}$/.test(normalizedId) || !normalizedType
-      || !allowedShapes.includes(normalizedShape)) {
+  if (!normalizedId || !normalizedType
+    || !allowedShapes.includes(normalizedShape)) {
     return res.status(400).json({ error: 'Invalid component type' });
   }
 
@@ -200,7 +204,14 @@ app.post('/api/runs/start', async (req, res) => {
     const countRes = await pool.query('SELECT COUNT(*) FROM production');
     const nextId = parseInt(countRes.rows[0].count, 10) + 1;
     const prodId = 'P' + nextId.toString().padStart(3, '0');
-    const compType = componentType ? `Component ${componentType}` : 'Component A';
+    let compType = 'Unknown';
+    if (componentType) {
+      const typeRes = await pool.query('SELECT component_type FROM components WHERE component_id = $1', [componentType]);
+      if (typeRes.rows.length > 0) compType = typeRes.rows[0].component_type;
+      else compType = `Component ${componentType}`;
+    } else {
+      compType = 'Front Panel';
+    }
 
     const result = await pool.query(
       'INSERT INTO production (production_id, component_type, status, downtime) VALUES ($1, $2, $3, $4) RETURNING id',
@@ -249,7 +260,7 @@ app.patch('/api/runs/:id/status', async (req, res) => {
 app.put('/api/runs/:id', async (req, res) => {
   const runId = req.params.id;
   const { oee, availability, performance, quality, downtime, totalCount, okCount } = req.body;
-  
+
   try {
     const query = `
       UPDATE production 
@@ -267,11 +278,11 @@ app.put('/api/runs/:id', async (req, res) => {
     `;
     const values = [oee, availability, performance, quality, downtime, totalCount, okCount, runId];
     const result = await pool.query(query, values);
-    
+
     if (result.rowCount === 0) {
       return res.status(404).json({ error: 'Run not found' });
     }
-    
+
     res.json({ success: true, data: result.rows[0] });
   } catch (err) {
     console.error('Error completing run:', err.message);
@@ -285,9 +296,14 @@ app.get('/api/runs', async (req, res) => {
     const totalRes = await pool.query('SELECT COUNT(*) FROM production');
     const recentRes = await pool.query('SELECT * FROM production ORDER BY id DESC LIMIT 100');
     
+    const totalComponentsRes = await pool.query("SELECT SUM(total_count) FROM production WHERE status = 'Completed'");
+    const perComponentRes = await pool.query("SELECT component_type, SUM(total_count) as total FROM production WHERE status = 'Completed' GROUP BY component_type ORDER BY total DESC");
+
     res.json({
       totalRuns: parseInt(totalRes.rows[0].count, 10),
-      recentRuns: recentRes.rows
+      recentRuns: recentRes.rows,
+      totalComponents: parseInt(totalComponentsRes.rows[0].sum || 0, 10),
+      componentsSummary: perComponentRes.rows.map(r => ({ type: r.component_type, total: parseInt(r.total, 10) }))
     });
   } catch (err) {
     console.error('Error fetching runs:', err.message);
